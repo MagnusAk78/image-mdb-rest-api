@@ -1,2 +1,24 @@
 *.class
 *.log
+
+/.idea/
+/project/boot/
+/project/plugins/project
+target/
+lib_managed/
+src_managed/
+test-output/
+*.iml
+.classpath_nb
+
+# Eclipse
+.cache
+.classpath
+.project
+.scala_dependencies
+.settings
+.target/
+/bin/
+
+.cache-main
+.cache-tests
