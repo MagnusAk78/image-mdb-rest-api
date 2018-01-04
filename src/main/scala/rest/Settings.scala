@@ -10,9 +10,7 @@ import com.typesafe.config.Config
 import java.util.concurrent.TimeUnit
  
 class SettingsImpl(config: Config) extends Extension {
-  val ServerBindIp: String = config.getString("ifm-master-server.bind-server-ip")
-  val ServerBindPort: Int = config.getInt("ifm-master-server.bind-server-port")
-  val MaxNumberOfProcessData: Int = config.getInt("ifm-master-server.max-number-of-process-data")
+  val MongoDbPort: String = config.getString("mongo-db.port")
 }
 object Settings extends ExtensionId[SettingsImpl] with ExtensionIdProvider {
  
