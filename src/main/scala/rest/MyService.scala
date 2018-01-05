@@ -14,6 +14,7 @@ import spray.json._
 import model.JsonSupport._
 import model.ImageData
 import model.ImagesInfo
+import model.ErrorMessage
 import control._
 
 // we don't implement our route structure directly in the service actor because
@@ -38,28 +39,34 @@ trait MyService extends HttpService {
     import spray.httpx.SprayJsonSupport.sprayJsonUnmarshaller
 
     pathPrefix("image") {
-            path(LongNumber) { timestamp =>
-              get {
-                respondWithMediaType(`application/json`) {
-                  complete {
-                    val future = mongoDBClient ? AskImageTimestampMessage(timestamp)
-                    val result = Await.result(future, timeout.duration).asInstanceOf[ImageData]
-                    result
-                  }
-                }
-              }
-            } ~
-        path("last") {
-          get {
-            respondWithMediaType(`application/json`) {
-              complete {
-                val future = mongoDBClient ? AskImageLastMessage
-                val result = Await.result(future, timeout.duration).asInstanceOf[ImageData]
-                result
+      path(LongNumber) { timestamp =>
+        get {
+          respondWithMediaType(`application/json`) {
+            complete {
+              val future = mongoDBClient ? AskImageTimestampMessage(timestamp)
+              val result = Await.result(future, timeout.duration).asInstanceOf[Either[ImageData, ErrorMessage]]
+              result match {
+                case Left(imageData) => imageData
+                case Right(errorMessage) => errorMessage
               }
             }
           }
         }
+      } ~
+      path("last") {
+        get {
+          respondWithMediaType(`application/json`) {
+            complete {
+              val future = mongoDBClient ? AskImageLastMessage
+              val result = Await.result(future, timeout.duration).asInstanceOf[Either[ImageData, ErrorMessage]]
+              result match {
+                case Left(imageData) => imageData
+                case Right(errorMessage) => errorMessage
+              }
+            }
+          }
+        }
+      }
     } ~
     pathPrefix("images") {
     	path("count") {

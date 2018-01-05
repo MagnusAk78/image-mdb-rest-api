@@ -1,3 +1,3 @@
 package model
 
-case class ErrorMessage(info: String)
+case class ErrorMessage(errorMessage: String)
