@@ -15,6 +15,8 @@ import model.JsonSupport._
 import model.ImageData
 import model.ImagesInfo
 import model.ErrorMessage
+import model.InfoMessage
+import model.ImageDataWithTimestamp
 import control._
 
 // we don't implement our route structure directly in the service actor because
@@ -43,25 +45,55 @@ trait MyService extends HttpService {
         get {
           respondWithMediaType(`application/json`) {
             complete {
-              val future = mongoDBClient ? AskImageTimestampMessage(timestamp)
-              val result = Await.result(future, timeout.duration).asInstanceOf[Either[ImageData, ErrorMessage]]
+              val future = mongoDBClient ? AskTimestampImageMessage(timestamp)
+              val result = Await.result(future, timeout.duration).asInstanceOf[Either[ErrorMessage, ImageDataWithTimestamp]]
               result match {
-                case Left(imageData) => imageData
-                case Right(errorMessage) => errorMessage
+                case Left(errorMessage) => errorMessage
+                case Right(imageData) => imageData
               }
             }
           }
         }
       } ~
-      path("last") {
+      path("latest") {
         get {
           respondWithMediaType(`application/json`) {
             complete {
-              val future = mongoDBClient ? AskImageLastMessage
-              val result = Await.result(future, timeout.duration).asInstanceOf[Either[ImageData, ErrorMessage]]
+              val future = mongoDBClient ? AskLatestImageMessage
+              val result = Await.result(future, timeout.duration).asInstanceOf[Either[ErrorMessage, ImageDataWithTimestamp]]
               result match {
-                case Left(imageData) => imageData
-                case Right(errorMessage) => errorMessage
+                case Left(errorMessage) => errorMessage
+                case Right(imageData) => imageData
+              }
+            }
+          }
+        }
+      } ~
+      path("oldest") {
+        get {
+          respondWithMediaType(`application/json`) {
+            complete {
+              val future = mongoDBClient ? AskOldestImageMessage
+              val result = Await.result(future, timeout.duration).asInstanceOf[Either[ErrorMessage, ImageDataWithTimestamp]]
+              result match {
+                case Left(errorMessage) => errorMessage
+                case Right(imageData) => imageData
+              }
+            }
+          }
+        }
+      } ~
+      path("insert") {
+        post {
+          entity(as[model.ImageData]) { imageData => 
+            respondWithMediaType(`application/json`) {
+              complete {
+                val future = mongoDBClient ? InsertImageMessage(imageData)
+                val result = Await.result(future, timeout.duration).asInstanceOf[Either[ErrorMessage, InfoMessage]]
+                result match {
+                  case Left(errorMessage) => errorMessage
+                  case Right(infoMessage) => infoMessage
+                }
               }
             }
           }
@@ -74,19 +106,27 @@ trait MyService extends HttpService {
     			respondWithMediaType(`application/json`) {
     				complete {
     					val future = mongoDBClient ? AskImagesCountMessage
-    							val result = Await.result(future, timeout.duration).asInstanceOf[ImagesInfo]
-    									result
+    					val result = Await.result(future, timeout.duration).asInstanceOf[Either[ErrorMessage, ImagesInfo]]
+    					result match {
+                case Left(errorMessage) => errorMessage
+                case Right(imagesInfo) => imagesInfo
+              }
     				}
     			}
     		}
     	} ~
-    	path("list") {
-    		get {
-    			respondWithMediaType(`application/json`) {
-    				complete {
-    					val future = mongoDBClient ? AskImagesListMessage
-    							val result = Await.result(future, timeout.duration).asInstanceOf[List[Long]]
-    									result
+    	path("query") {
+    		post {
+    		  entity(as[model.ImageQuery]) { imageQuery =>
+    			  respondWithMediaType(`application/json`) {
+    				  complete {
+    					  val future = mongoDBClient ? AskQueryImagesListMessage(imageQuery)
+    					  val result = Await.result(future, timeout.duration).asInstanceOf[Either[ErrorMessage, List[Long]]]
+    					  result match {
+                  case Left(errorMessage) => errorMessage
+                  case Right(list) => list
+                }
+    				  }
     				}
     			}
     		}
@@ -98,14 +138,36 @@ trait MyService extends HttpService {
     			complete {
     				"""
     				<html>
-    				<body>
-    				<h1>Image MongoDB REST API</h1>
-    				<br>
-    				/image/timestamp:Long <br>
-    				/image/last <br>
-    				/images/count <br>
-    				/images/list <br>
-    				</body>
+    				  <head>
+                <title>Image MongoDB REST API</title>
+              </head>
+    				  <body>
+    				    <h2>Image MongoDB REST API</h2>
+    				    
+    				    <h4>Get image with specific timestamp</h4>
+    				    <code>GET:  /image/&lt;timestamp&gt;</code><br>
+    				    
+    				    <h4>Get latest inserted image</h4>
+    				    <code>GET:  /image/latest</code> <br>
+    				    
+    				    <h4>Get oldest inserted image</h4>
+    				    <code>GET:  /image/oldest</code> <br>
+    				    
+    				    <h4>Insert new image</h4>
+    				    <code>POST: /image/insert</code> <br>
+    				    
+    				    <code>{"base64": &lt;Base64String&gt;}</code>
+    				    <p>Upload an image as an base64 encoded string.</p>
+    				    
+    				    <h4>Count current number of images stored</h4>
+    				    <code>GET:  /images/count</code> <br>
+    				    
+    				    <h4>Query images</h4>
+    				    <code>POST: /images/query</code> <br>
+    				    
+    				    <code>{"fromTimestamp": &lt;timestamp&gt;,"toTimestamp": &lt;timestamp&gt;, "limit": &lt;limit&gt;}</code><br>
+    				    <p>Assign 0 to any field to ignore it.</p>
+    				  </body>
     				</html>
     				"""
     			}

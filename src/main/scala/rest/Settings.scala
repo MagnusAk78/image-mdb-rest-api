@@ -12,7 +12,10 @@ import java.util.concurrent.TimeUnit
 class SettingsImpl(config: Config) extends Extension {
   val HttpServerBindIp: String = config.getString("spray.can.server.bind-server-ip")
   val HttpServerBindPort: Int = config.getInt("spray.can.server.bind-server-port")
+  val MongoDbIpAddress: String = config.getString("mongo-db.ip-address")
   val MongoDbPort: String = config.getString("mongo-db.port")
+  val MongoDbDatabaseName: String = config.getString("mongo-db.database-name")
+  val MongoDbCollectionName: String = config.getString("mongo-db.collection-name")
 }
 
 object Settings extends ExtensionId[SettingsImpl] with ExtensionIdProvider {
