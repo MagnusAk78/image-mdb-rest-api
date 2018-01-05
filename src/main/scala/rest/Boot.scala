@@ -24,10 +24,10 @@ object Boot extends App {
   val service = system.actorOf(Props(new MyServiceActor(mongoDBClient)), "image-mdb-rest-api")
 
   implicit val timeout = Timeout(10.seconds)
+  
+//Get settings
+  val settings = Settings(system)  
 
   // start a new HTTP server
   IO(Http) ? Http.Bind(service, interface = settings.HttpServerBindIp, port = settings.HttpServerBindPort)
-
-  //Get settings
-  val settings = Settings(system)
 }
