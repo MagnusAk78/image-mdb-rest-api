@@ -10,8 +10,11 @@ import com.typesafe.config.Config
 import java.util.concurrent.TimeUnit
  
 class SettingsImpl(config: Config) extends Extension {
+  val HttpServerBindIp: String = config.getString("spray.can.server.bind-server-ip")
+  val HttpServerBindPort: Int = config.getInt("spray.can.server.bind-server-port")
   val MongoDbPort: String = config.getString("mongo-db.port")
 }
+
 object Settings extends ExtensionId[SettingsImpl] with ExtensionIdProvider {
  
   override def lookup = Settings

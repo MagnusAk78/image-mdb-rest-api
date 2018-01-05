@@ -61,51 +61,49 @@ trait MyService extends HttpService {
           }
         }
     } ~
-      pathPrefix("images") {
-        pathPrefix(Segment) { id: String =>
-          path("count") {
-            get {
-              respondWithMediaType(`application/json`) {
-                complete {
-                  val future = mongoDBClient ? AskImagesCountMessage
-                  val result = Await.result(future, timeout.duration).asInstanceOf[ImagesInfo]
-                  result
-                }
-              }
-            }
-          } ~
-          path("list") {
-            get {
-              respondWithMediaType(`application/json`) {
-                complete {
-                  val future = mongoDBClient ? AskImagesListMessage
-                  val result = Await.result(future, timeout.duration).asInstanceOf[List[Long]]
-                  result
-                }
-              }
-            }
-          }
-        }
-      } ~
-      path("") {
-        get {
-          respondWithMediaType(`text/html`) { // XML is marshalled to `text/xml` by default, so we simply override here
-            complete {
-              """
-              <html>
-                <body>
-                  <h1>Image MongoDB REST API</h1>
-									<br>
-									/image/timestamp:Long <br>
-									/image/last <br>
-									/images/count <br>
-									/images/list <br>
-                </body>
-              </html>
-              """
-            }
-          }
-        }
-      }
+    pathPrefix("images") {
+    	path("count") {
+    		get {
+    			respondWithMediaType(`application/json`) {
+    				complete {
+    					val future = mongoDBClient ? AskImagesCountMessage
+    							val result = Await.result(future, timeout.duration).asInstanceOf[ImagesInfo]
+    									result
+    				}
+    			}
+    		}
+    	} ~
+    	path("list") {
+    		get {
+    			respondWithMediaType(`application/json`) {
+    				complete {
+    					val future = mongoDBClient ? AskImagesListMessage
+    							val result = Await.result(future, timeout.duration).asInstanceOf[List[Long]]
+    									result
+    				}
+    			}
+    		}
+    	}
+    } ~
+    path("") {
+    	get {
+    		respondWithMediaType(`text/html`) { // XML is marshalled to `text/xml` by default, so we simply override here
+    			complete {
+    				"""
+    				<html>
+    				<body>
+    				<h1>Image MongoDB REST API</h1>
+    				<br>
+    				/image/timestamp:Long <br>
+    				/image/last <br>
+    				/images/count <br>
+    				/images/list <br>
+    				</body>
+    				</html>
+    				"""
+    			}
+    		}
+    	}
+    }
   }
 }
