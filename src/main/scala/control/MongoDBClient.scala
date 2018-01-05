@@ -15,6 +15,7 @@ class MongoDBClient() extends Actor with akka.actor.ActorLogging {
 
   import org.mongodb.scala._
   
+  import org.mongodb.scala.model.Filters._
   import org.mongodb.scala.bson.codecs.Macros._
   import org.mongodb.scala.bson.codecs.DEFAULT_CODEC_REGISTRY
   import org.bson.codecs.configuration.CodecRegistries.{fromRegistries, fromProviders}
@@ -33,6 +34,19 @@ class MongoDBClient() extends Actor with akka.actor.ActorLogging {
     case AskImageTimestampMessage(timestamp) ⇒ {
       log.info("MongoDBClient - AskImageListMessage")
       
+      collection.find(equal("timestamp", timestamp)).first().subscribe(new Observer[ImageDataDB] {
+
+        override def onNext(imageDataDB: ImageDataDB): Unit = {
+          sender ! Left(ImageDataDB.toImageData(imageDataDB))
+        }
+
+        override def onError(e: Throwable): Unit = {
+          sender ! Right(ErrorMessage("Error finding image data"))
+        }
+
+        override def onComplete(): Unit = log.info("MongoDBClient - AskImageLastMessage End")
+      })
+      
       sender ! ImageDataDB.apply(base64 = "test", timestamp = System.currentTimeMillis)
     }
     
@@ -42,11 +56,11 @@ class MongoDBClient() extends Actor with akka.actor.ActorLogging {
       collection.find.first().subscribe(new Observer[ImageDataDB] {
 
         override def onNext(imageDataDB: ImageDataDB): Unit = {
-          sender ! ImageDataDB.toImageData(imageDataDB)
+          sender ! Left(ImageDataDB.toImageData(imageDataDB))
         }
 
         override def onError(e: Throwable): Unit = {
-          sender ! ErrorMessage("Error finding image data")
+          sender ! Right(ErrorMessage("Error finding image data"))
         }
 
         override def onComplete(): Unit = log.info("MongoDBClient - AskImageLastMessage End")
@@ -59,11 +73,11 @@ class MongoDBClient() extends Actor with akka.actor.ActorLogging {
       collection.count().subscribe(new Observer[Long] {
 
         override def onNext(countValue: Long): Unit = {
-          sender ! new ImagesInfo(count = countValue)
+          sender ! ImagesInfo(count = countValue)
         }
 
         override def onError(e: Throwable): Unit = {
-          sender ! ErrorMessage("Error counting collection")
+          sender ! ImagesInfo(count = 0)
         }
 
         override def onComplete(): Unit = log.info("MongoDBClient - AskImagesCountMessage End")
