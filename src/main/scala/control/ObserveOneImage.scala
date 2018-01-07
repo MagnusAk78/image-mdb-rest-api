@@ -25,7 +25,7 @@ class ObserveOneImage(sender: ActorRef, log: LoggingAdapter, caller: String) ext
   override def onError(e: Throwable): Unit = {
     resultSent = true
     log.info(caller + ", onError: " + e.getMessage) 
-    sender ! Left(ErrorMessage("database error: e.getMessage"))
+    sender ! Left(ErrorMessage("database error: " + e.getMessage))
   }
 
   override def onComplete(): Unit = {

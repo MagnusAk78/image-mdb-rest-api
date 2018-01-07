@@ -16,6 +16,7 @@ class SettingsImpl(config: Config) extends Extension {
   val MongoDbPort: String = config.getString("mongo-db.port")
   val MongoDbDatabaseName: String = config.getString("mongo-db.database-name")
   val MongoDbCollectionName: String = config.getString("mongo-db.collection-name")
+  val MongoDbExpireImagesTimeInMinutes: Int = config.getInt("mongo-db.expire-after-minutes")
 }
 
 object Settings extends ExtensionId[SettingsImpl] with ExtensionIdProvider {
