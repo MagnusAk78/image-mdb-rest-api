@@ -33,6 +33,9 @@ case class AskQueryImagesListMessage(imageQuery: ImageQuery)
 
 case class InsertImageMessage(imageData: ImageData)
 
+case class ResponseCreateIndex(resultOk: Boolean, alreadyExists: Boolean, errorMessage: Option[String])
+case class ResponseDropIndex(resultOk: Boolean, errorMessage: Option[String])
+
 class MongoDBClient(settings: SettingsImpl) extends Actor with akka.actor.ActorLogging {
 
   // Use a Connection String
@@ -45,25 +48,50 @@ class MongoDBClient(settings: SettingsImpl) extends Actor with akka.actor.ActorL
   val caseClassCollection: MongoCollection[ImageDataDB] = database.getCollection(settings.MongoDbCollectionName)
 
   val documentCollection: MongoCollection[Document] = database.getCollection(settings.MongoDbCollectionName)
+  
+  var nrOfCreateIndexAttempts = 1
 
-  // Set timestamp as a descending inces and set expire time according to settings value
+  log.info("MongoDBClient - Creating index...")
+  // Set 'timestamp' as a descending index and set expire time according to settings value
   documentCollection.createIndex(Indexes.descending("timestamp"),
     IndexOptions().expireAfter(settings.MongoDbExpireImagesTimeInMinutes, TimeUnit.MINUTES)).subscribe(
-      new Observer[String] {
-        def onNext(result: String) {
-          log.info("MongoDBClient - createIndex, onNext: " + result)
-        }
-
-        def onError(e: Throwable) {
-          log.info("MongoDBClient - createIndex, onError: " + e.getMessage())
-        }
-
-        def onComplete() {
-          log.info("MongoDBClient - createIndex, onComplete")
-        }
-      })
+        new ObserveCreateIndex(this.context.self, log, "MongoDBClient - CreateIndex"))
 
   def receive = {
+    
+    case ResponseCreateIndex(resultOk, alreadyExists, errorMessage) => {
+      log.info("MongoDBClient - ResponseCreateIndex")
+      log.info("MongoDBClient - ResponseCreateIndex, resultOk: " + resultOk)
+      log.info("MongoDBClient - ResponseCreateIndex, alreadyExists: " + alreadyExists)
+      
+      
+      
+      if(resultOk == false && alreadyExists == true && nrOfCreateIndexAttempts < 2) {
+        log.info("MongoDBClient - ResponseCreateIndex, Dropping index...")
+        //Drop the current index unless already tried to many times
+        documentCollection.dropIndex(Indexes.descending("timestamp")).subscribe(
+            new ObserveDropIndex(this.context.self, log, "MongoDBClient - DropIndex"))
+      } else if(resultOk == false) {
+        log.info("MongoDBClient - ResponseCreateIndex, errorMessage: " + errorMessage.getOrElse("None"))
+        System.exit(1)
+      }
+    }
+    
+    case ResponseDropIndex(resultOk, errorMessage) => {
+      log.info("MongoDBClient - ResponseDropIndex")
+      log.info("MongoDBClient - ResponseDropIndex, resultOk: " + resultOk)
+      
+      if(resultOk) {
+        nrOfCreateIndexAttempts += 1
+        log.info("MongoDBClient - ResponseDropIndex, Creating index...")
+        documentCollection.createIndex(Indexes.descending("timestamp"),
+          IndexOptions().expireAfter(settings.MongoDbExpireImagesTimeInMinutes, TimeUnit.MINUTES)).subscribe(
+            new ObserveCreateIndex(this.context.self, log, "MongoDBClient - CreateIndex"))        
+      } else {
+        log.info("MongoDBClient - ResponseDropIndex, errorMessage: " + errorMessage.getOrElse("None"))
+        System.exit(1)
+      }
+    }
 
     case AskTimestampImageMessage(timestamp) ⇒ {
       log.info("MongoDBClient - AskTimestampImageMessage")
