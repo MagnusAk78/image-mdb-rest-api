@@ -19,25 +19,20 @@ class ObserveCreateIndex(sender: ActorRef, log: LoggingAdapter, caller: String) 
     log.info(caller + ", onNext: " + result)
     resultSent = true
     
-    sender ! ResponseCreateIndex(true, false, None)
+    sender ! ResponseCreateIndex(true, None)
   }
 
   override def onError(e: Throwable): Unit = {
     resultSent = true
-    if(e.getMessage().contains("already exists")) {
-      log.info(caller + ", the index already exists, drop and create it again")
-      sender ! ResponseCreateIndex(false, true, None)
-    } else {
-      log.info(caller + ", onError: " + e.getMessage)
-      sender ! ResponseCreateIndex(false, false, Some(e.getMessage))
-    }
+    log.info(caller + ", onError: " + e.getMessage)
+    sender ! ResponseCreateIndex(false, Some(e.getMessage))
   }
 
   override def onComplete(): Unit = {
     log.info(caller + ", onComplete")
     
     if (resultSent == false) {
-      sender ! ResponseCreateIndex(false, false, Some("Unexpected complete"))
+      sender ! ResponseCreateIndex(false, Some("Unexpected complete"))
     }
   }  
 }
