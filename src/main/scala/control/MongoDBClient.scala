@@ -32,6 +32,7 @@ case object AskImagesCountMessage
 case class AskQueryImagesListMessage(imageQuery: ImageQuery)
 
 case class InsertImageMessage(imageData: ImageData)
+case class InsertImageWithTimestampMessage(imageDataWithTimestamp: ImageDataWithTimestamp)
 
 case class ResponseCreateIndex(resultOk: Boolean, errorMessage: Option[String])
 case class ResponseDropIndex(resultOk: Boolean, errorMessage: Option[String])
@@ -110,17 +111,27 @@ class MongoDBClient(settings: SettingsImpl) extends Actor with akka.actor.ActorL
     case AskQueryImagesListMessage(imageQuery) ⇒ {
       log.info("MongoDBClient - AskQueryImagesListMessage Start")
 
-      val findBson = if (imageQuery.fromTimestamp == 0 && imageQuery.toTimestamp == 0) {
-        Document.empty
-      } else if (imageQuery.fromTimestamp > 0 && imageQuery.toTimestamp == 0) {
-        gte("timestamp", imageQuery.fromTimestamp)
-      } else if (imageQuery.fromTimestamp == 0 && imageQuery.toTimestamp > 0) {
-        lte("timestamp", imageQuery.toTimestamp)
+      val findTimeBson = if (imageQuery.fromTimestamp == 0 && imageQuery.toTimestamp == 0) {
+          Document.empty
+        } else if (imageQuery.fromTimestamp > 0 && imageQuery.toTimestamp == 0) {
+          gte("timestamp", imageQuery.fromTimestamp)
+        } else if (imageQuery.fromTimestamp == 0 && imageQuery.toTimestamp > 0) {
+          lte("timestamp", imageQuery.toTimestamp)
+        } else {
+          and(gte("timestamp", imageQuery.fromTimestamp), lte("timestamp", imageQuery.toTimestamp))
+        }
+      
+      val findFullBson = if(imageQuery.originName.length > 0) {
+        if(findTimeBson == Document.empty) {
+          equal("originName", imageQuery.originName)
+        } else {
+          and(findTimeBson, equal("originName", imageQuery.originName))
+        }
       } else {
-        and(gte("timestamp", imageQuery.fromTimestamp), lte("timestamp", imageQuery.toTimestamp))
+        findTimeBson
       }
-
-      documentCollection.find(findBson).projection(include("timestamp")).sort(descending("timestamp"))
+      
+      documentCollection.find(findFullBson).projection(include("timestamp")).sort(descending("timestamp"))
         .limit(imageQuery.limit).map[BsonDateTime] { document: Document => document("timestamp").asDateTime() }.subscribe(
           new ObserveListImageTimestamps(sender, log, "MongoDBClient - AskQueryImagesListMessage"))
     }
@@ -128,8 +139,15 @@ class MongoDBClient(settings: SettingsImpl) extends Actor with akka.actor.ActorL
     case InsertImageMessage(imageData) ⇒ {
       log.info("MongoDBClient - InsertImageMessage Start")
 
-      caseClassCollection.insertOne(ImageDataDB(ImageDataWithTimestamp(imageData.base64, System.currentTimeMillis))).subscribe(
-        new ObserveInsert(sender, log, "MongoDBClient - InsertImageMessage"))
+      caseClassCollection.insertOne(ImageDataDB(ImageDataWithTimestamp(imageData.originName, imageData.base64,
+        System.currentTimeMillis))).subscribe(new ObserveInsert(sender, log, "MongoDBClient - InsertImageMessage"))
+    }
+    
+    case InsertImageWithTimestampMessage(imageDataWithTimestamp) ⇒ {
+      log.info("MongoDBClient - InsertImageWithTimestampMessage Start")
+
+      caseClassCollection.insertOne(ImageDataDB(imageDataWithTimestamp)).subscribe(
+          new ObserveInsert(sender, log, "MongoDBClient - InsertImageMessage"))
     }
   }
 }

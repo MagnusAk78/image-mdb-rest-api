@@ -17,11 +17,13 @@ import model.ImagesInfo
 import model.ErrorMessage
 import model.InfoMessage
 import model.ImageDataWithTimestamp
+import model.AggretationStatus
 import control._
 
 // we don't implement our route structure directly in the service actor because
 // we want to be able to test it independently, without having to spin up an actor
-class MyServiceActor(override val mongoDBClient: ActorRef) extends Actor with MyService {
+class MyServiceActor(override val mongoDBClient: ActorRef, override val aggregationClients: List[ActorRef]) 
+  extends Actor with MyService {
 
   // the HttpService trait defines only one abstract member, which
   // connects the services environment to the enclosing actor or test
@@ -33,6 +35,7 @@ class MyServiceActor(override val mongoDBClient: ActorRef) extends Actor with My
 trait MyService extends HttpService {
 
   val mongoDBClient: ActorRef
+  val aggregationClients: List[ActorRef]
 
   implicit val timeout = Timeout(5 seconds)
 
@@ -132,6 +135,18 @@ trait MyService extends HttpService {
     		}
     	}
     } ~
+    pathPrefix("aggregation") {
+    	path("status") {
+    		get {
+    			respondWithMediaType(`application/json`) {
+    				complete {
+    				  val futures = aggregationClients.map { _ ? AskStatusMessage }
+    				  futures.map { future => Await.result(future, timeout.duration).asInstanceOf[AggretationStatus] }
+    				}
+    			}
+    		}
+    	}
+    } ~    
     path("") {
     	get {
     		respondWithMediaType(`text/html`) { // XML is marshalled to `text/xml` by default, so we simply override here
@@ -156,7 +171,12 @@ trait MyService extends HttpService {
     				    <h4>Insert new image</h4>
     				    <code>POST: /image/insert</code> <br>
     				    
-    				    <code>{"base64": &lt;Base64String&gt;}</code>
+    				    <code><pre>
+    				    {
+    				      "base64": Image data, &lt;Base64String&gt;
+    				      "originName": Name of the originator of the image data, &lt;String&gt;
+    				    }
+    				    </pre></code>
     				    <p>Upload an image as an base64 encoded string.</p>
     				    
     				    <h4>Count current number of images stored</h4>
@@ -165,8 +185,15 @@ trait MyService extends HttpService {
     				    <h4>Query images</h4>
     				    <code>POST: /images/query</code> <br>
     				    
-    				    <code>{"fromTimestamp": &lt;timestamp&gt;,"toTimestamp": &lt;timestamp&gt;, "limit": &lt;limit&gt;}</code><br>
-    				    <p>Assign 0 to any field to ignore it.</p>
+    				    <code><pre>
+    				    {
+    				      "originName": &lt;String&gt;,
+    				      "fromTimestamp": &lt;timestamp&gt;,
+    				      "toTimestamp": &lt;timestamp&gt;,
+    				      "limit": &lt;limit&gt;
+    				    }
+    				    </pre></code>
+    				    <p>Assign 0 or empty to any field to ignore it.</p>
     				  </body>
     				</html>
     				"""
