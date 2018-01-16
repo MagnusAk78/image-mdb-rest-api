@@ -83,7 +83,7 @@ class MongoDBClient(settings: SettingsImpl) extends Actor with akka.actor.ActorL
     case AskTimestampImageMessage(originName, timestamp) ⇒ {
       log.info("MongoDBClient - AskTimestampImageMessage")
 
-      caseClassCollection.find(and(equal("originName", originName),equal("timestamp", timestamp))).first().subscribe(
+      caseClassCollection.find(and(equal("originName", originName),equal("timestamp", BsonDateTime(timestamp)))).first().subscribe(
         new ObserveOneImage(sender, log, "MongoDBClient - AskTimestampImageMessage"))
     }
 
