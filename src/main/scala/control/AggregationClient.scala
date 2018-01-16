@@ -32,9 +32,9 @@ class AggregationClient(originName: String, originUrl: String, minutesBetweenCol
   implicit val system = ActorSystem()
   import system.dispatcher // execution context for futures
 
-  implicit val timeout = Timeout(10 seconds)
+  implicit val timeout = Timeout(5 seconds)
 
-  system.scheduler.schedule(0 minutes, minutesBetweenCollection minutes)(queryImages)
+  system.scheduler.schedule(1 minutes, minutesBetweenCollection minutes)(getImagesFromRemote)
 
   private var latestTimestampReceived: Long = 0
   private var imagesReceived: Long = 0
@@ -42,82 +42,98 @@ class AggregationClient(originName: String, originUrl: String, minutesBetweenCol
   private var nrOfTimeouts: Long = 0
   private var timeOfLastAggregation: Long = 0
 
-  def queryImages {
-    timeOfLastAggregation = System.currentTimeMillis
-    
+  def getImagesFromRemote {
+    log.debug("getImagesFromRemote START")
+
+    try {
+      timeOfLastAggregation = System.currentTimeMillis
+      val latestTimestampInOwnDB = getLatestImageInOwnDB
+
+      val timestamps = queryImages(latestTimestampInOwnDB)
+      for (timestamp <- timestamps) {
+        val image = getImage(timestamp)
+        imagesReceived = imagesReceived + 1
+        if (image.timestamp > latestTimestampReceived) {
+          latestTimestampReceived = image.timestamp
+        }
+        writeImageData(image)
+        imagesInserted = imagesInserted + 1
+      }
+    } catch {
+      case timeout: TimeoutException => {
+        nrOfTimeouts = nrOfTimeouts + 1
+        log.debug("TimeoutException: " + timeout.getMessage)
+      }
+      case exception: Throwable => {
+        log.error("ErrorMessage: " + exception.getMessage)
+      }
+    }
+    log.debug("getImagesFromRemote END")
+  }
+
+  def getLatestImageInOwnDB: Long = {
+    log.debug("getLatestImageInOwnDB START")
+
+    val future = mongoDbClient ? AskLatestImageMessage(originName = originName)
+
+    Await.result(future, timeout.duration).asInstanceOf[Either[ErrorMessage, ImageDataPresented]] match {
+      case Left(errorMessage) => {
+        log.debug("getLatestImageInOwnDB, ErrorMessage: " + errorMessage.errorMessage)
+        log.debug("getLatestImageInOwnDB END")
+        //Assume no match, equals 0
+        0
+      }
+      case Right(imageDataPresented) => {
+        log.debug("getLatestImageInOwnDB, imageDataPresented.timestamp: " + imageDataPresented.timestamp)
+        log.debug("getLatestImageInOwnDB END")
+        imageDataPresented.timestamp
+      }
+    }
+  }
+
+  def queryImages(latestTimestampInOwnDB: Long): List[Long] = {
+    log.debug("queryImages START")
+
     val pipeline: HttpRequest => Future[List[Long]] = sendReceive ~> unmarshal[List[Long]]
     val response: Future[List[Long]] = pipeline(Post(originUrl + "/images/query",
-      ImageQuery(originName = originName, fromTimestamp = latestTimestampReceived + 1, toTimestamp = 0, limit = 0)))
+      ImageQuery(originName = originName, fromTimestamp = latestTimestampInOwnDB + 1, toTimestamp = 0, limit = 0)))
 
-      try {
-        val timestamps = Await.result(response, timeout.duration)
-        for(timestamp <- timestamps) {
-          getImage(timestamp)
-        }
-      } catch {
-      case timeout: TimeoutException => {
-        nrOfTimeouts = nrOfTimeouts + 1
-        log.info("AggregationClient, queryImages, TimeoutException")
-      }
-      case exception: Throwable => {
-        log.error("AggregationClient, queryImages, ErrorMessage: " + exception.getMessage)
-      }
-    }
-    
+    log.debug("queryImages END")
+    Await.result(response, timeout.duration)
   }
 
-  def getImage(timestamp: Long) {
-    val pipeline: HttpRequest => Future[ImageDataWithTimestamp] = sendReceive ~> unmarshal[ImageDataWithTimestamp]
+  def getImage(timestamp: Long): ImageDataPresented = {
+    log.debug("getImage, timestamp: " + timestamp + ", START")
 
-    val response: Future[ImageDataWithTimestamp] = pipeline(Get(originUrl + "/image/" + timestamp))
+    val pipeline: HttpRequest => Future[ImageDataPresented] = sendReceive ~> unmarshal[ImageDataPresented]
 
-    try {
-      writeImageData(Await.result(response, timeout.duration))
-    } catch {
-      case timeout: TimeoutException => {
-        nrOfTimeouts = nrOfTimeouts + 1
-        log.info("AggregationClient, getImage, TimeoutException")
-      }
-      case exception: Throwable => {
-        log.error("AggregationClient, getImage, ErrorMessage: " + exception.getMessage)
-      }
-    }
+    val response: Future[ImageDataPresented] = pipeline(Get(originUrl + "/image/" + originName + "/" + timestamp))
 
+    log.debug("getImage, timestamp: " + timestamp + ", END")
+    Await.result(response, timeout.duration)
   }
 
-  def writeImageData(imageDataWithTimestamp: ImageDataWithTimestamp) {
-    imagesReceived = imagesReceived + 1
-    if(imageDataWithTimestamp.timestamp > latestTimestampReceived) {
-      latestTimestampReceived = imageDataWithTimestamp.timestamp  
-    }
-    val future = mongoDbClient ? InsertImageWithTimestampMessage(imageDataWithTimestamp)
+  def writeImageData(imageDataPresented: ImageDataPresented) {
+    log.debug("writeImageData START")
 
-    try {
-      Await.result(future, timeout.duration).asInstanceOf[Either[ErrorMessage, InfoMessage]] match {
-        case Left(errorMessage) => {
-          log.error("AggregationClient, writeImageData, ErrorMessage: " + errorMessage.errorMessage)
-        }
-        case Right(infoMessage) => {
-          imagesInserted = imagesInserted + 1
-          log.debug("AggregationClient, writeImageData, infoMessage: " + infoMessage.infoMessage)
-        }
+    val future = mongoDbClient ? InsertImageDataPresentedMessage(imageDataPresented)
+
+    Await.result(future, timeout.duration).asInstanceOf[Either[ErrorMessage, InfoMessage]] match {
+      case Left(errorMessage) => {
+        log.debug("writeImageData, ErrorMessage: " + errorMessage.errorMessage)
       }
-    } catch {
-      case timeout: TimeoutException => {
-        nrOfTimeouts = nrOfTimeouts + 1
-        log.info("AggregationClient, writeImageData, TimeoutException")
-      }
-      case exception: Throwable => {
-        log.error("AggregationClient, writeImageData, ErrorMessage: " + exception.getMessage)
+      case Right(infoMessage) => {
+        log.debug("writeImageData, infoMessage: " + infoMessage.infoMessage)
       }
     }
 
+    log.debug("writeImageData END")
   }
 
   def receive = {
     case AskStatusMessage => {
       sender ! AggretationStatus(originName, imagesReceived, imagesInserted, nrOfTimeouts, latestTimestampReceived,
-      timeOfLastAggregation)
+        timeOfLastAggregation)
     }
   }
 }
