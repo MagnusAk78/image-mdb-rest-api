@@ -21,4 +21,4 @@ while True:
   payload = json.dumps({'base64' : image_64 })
   
   headers = {'Content-Type' : 'application/json'}
-  r = requests.post("http://192.168.1.196:8080/image/insert", headers = headers, data = payload)
+  r = requests.post("http://192.168.1.254:8080/TestOrigin/image/insert", headers = headers, data = payload)
