@@ -17,7 +17,7 @@ class ObserveDropIndex(sender: ActorRef, log: LoggingAdapter, caller: String) ex
   var resultSent = false
 
   override def onNext(result: Completed): Unit = {
-    log.info(caller + ", onNext: " + result)
+    log.debug(caller + ", onNext: " + result)
     resultSent = true
     
     sender ! ResponseDropIndex(true, None)
@@ -25,12 +25,12 @@ class ObserveDropIndex(sender: ActorRef, log: LoggingAdapter, caller: String) ex
 
   override def onError(e: Throwable): Unit = {
     resultSent = true
-    log.info(caller + ", onError: " + e.getMessage)
+    log.debug(caller + ", onError: " + e.getMessage)
     sender ! ResponseDropIndex(false, Some(e.getMessage))
   }
 
   override def onComplete(): Unit = {
-    log.info(caller + ", onComplete")
+    log.debug(caller + ", onComplete")
     
     if (resultSent == false) {
       sender ! ResponseDropIndex(false, Some("Unexpected complete"))

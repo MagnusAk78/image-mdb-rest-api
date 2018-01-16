@@ -16,7 +16,7 @@ class ObserveCreateIndex(sender: ActorRef, log: LoggingAdapter, caller: String) 
   var resultSent = false
 
   override def onNext(result: String): Unit = {
-    log.info(caller + ", onNext: " + result)
+    log.debug(caller + ", onNext: " + result)
     resultSent = true
     
     sender ! ResponseCreateIndex(true, None)
@@ -24,12 +24,12 @@ class ObserveCreateIndex(sender: ActorRef, log: LoggingAdapter, caller: String) 
 
   override def onError(e: Throwable): Unit = {
     resultSent = true
-    log.info(caller + ", onError: " + e.getMessage)
+    log.debug(caller + ", onError: " + e.getMessage)
     sender ! ResponseCreateIndex(false, Some(e.getMessage))
   }
 
   override def onComplete(): Unit = {
-    log.info(caller + ", onComplete")
+    log.debug(caller + ", onComplete")
     
     if (resultSent == false) {
       sender ! ResponseCreateIndex(false, Some("Unexpected complete"))

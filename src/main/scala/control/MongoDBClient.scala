@@ -30,8 +30,8 @@ case class AskOldestImageMessage(originName: String)
 case class InsertImageMessage(originName: String, imageData: ImageDataInsert)
 case class InsertImageDataPresentedMessage(imageDataPresented: ImageDataPresented)
 
-case object AskImagesCountMessage
-case class AskQueryImagesListMessage(imageQuery: ImageQuery)
+case class AskImagesCountMessage(originName: String)
+case class AskQueryImagesListMessage(originName: String, imageQuery: ImageQuery)
 
 case class ResponseCreateIndex(resultOk: Boolean, errorMessage: Option[String])
 case class ResponseDropIndex(resultOk: Boolean, errorMessage: Option[String])
@@ -57,21 +57,20 @@ class MongoDBClient(settings: SettingsImpl) extends Actor with akka.actor.ActorL
   def receive = {
 
     case ResponseDropIndex(resultOk, errorMessage) => {
-      log.info("MongoDBClient - ResponseDropIndex")
+      log.info("ResponseDropIndex")
 
       if (resultOk) {
-        log.info("MongoDBClient - ResponseDropIndex OK, creating new index...")
+        log.info("ResponseDropIndex OK, creating new index...")
         documentCollection.createIndex(Indexes.descending("timestamp"),
           IndexOptions().expireAfter(settings.MongoDbExpireImagesTimeInMinutes, TimeUnit.MINUTES)).subscribe(
             new ObserveCreateIndex(this.context.self, log, "MongoDBClient - CreateIndex"))
       } else {
-        log.info("MongoDBClient - ResponseDropIndex, errorMessage: " + errorMessage.getOrElse("None"))
+        log.info("ResponseDropIndex, errorMessage: " + errorMessage.getOrElse("None"))
         System.exit(1)
       }
     }
 
     case ResponseCreateIndex(resultOk, errorMessage) => {
-      log.info("MongoDBClient - ResponseCreateIndex")
       log.info("MongoDBClient - ResponseCreateIndex, resultOk: " + resultOk)
 
       if (resultOk == false) {
@@ -81,70 +80,61 @@ class MongoDBClient(settings: SettingsImpl) extends Actor with akka.actor.ActorL
     }
 
     case AskTimestampImageMessage(originName, timestamp) ⇒ {
-      log.info("MongoDBClient - AskTimestampImageMessage")
+      log.debug("AskTimestampImageMessage")
 
       caseClassCollection.find(and(equal("originName", originName),equal("timestamp", BsonDateTime(timestamp)))).first().subscribe(
         new ObserveOneImage(sender, log, "MongoDBClient - AskTimestampImageMessage"))
     }
  
     case AskLatestImageMessage(originName) ⇒ {
-      log.info("MongoDBClient - AskImageLastMessage")
+      log.debug("AskImageLastMessage")
 
       caseClassCollection.find(equal("originName", originName)).sort(descending("timestamp")).first().subscribe(
         new ObserveOneImage(sender, log, "MongoDBClient - AskLatestImageMessage"))
     }
 
     case AskOldestImageMessage(originName) ⇒ {
-      log.info("MongoDBClient - AskOldestImageMessage")
+      log.debug("AskOldestImageMessage")
 
       caseClassCollection.find(equal("originName", originName)).sort(ascending("timestamp")).first().subscribe(
         new ObserveOneImage(sender, log, "MongoDBClient - AskOldestImageMessage"))
     }
 
-    case AskImagesCountMessage ⇒ {
-      log.info("MongoDBClient - AskImagesCountMessage")
+    case AskImagesCountMessage(originName) ⇒ {
+      log.debug("AskImagesCountMessage")
 
-      caseClassCollection.count().subscribe(new ObserveCount(sender, log, "MongoDBClient - AskImagesCountMessage"))
+      caseClassCollection.count(equal("originName", originName)).subscribe(
+          new ObserveCount(sender, log, "MongoDBClient - AskImagesCountMessage"))
     }
 
-    case AskQueryImagesListMessage(imageQuery) ⇒ {
-      log.info("MongoDBClient - AskQueryImagesListMessage Start")
+    case AskQueryImagesListMessage(originName, imageQuery) ⇒ {
+      log.debug("AskQueryImagesListMessage Start")
 
-      val findTimeBson = if (imageQuery.fromTimestamp == 0 && imageQuery.toTimestamp == 0) {
-          Document.empty
+      val findFullBson = if (imageQuery.fromTimestamp == 0 && imageQuery.toTimestamp == 0) {
+          equal("originName", originName)
         } else if (imageQuery.fromTimestamp > 0 && imageQuery.toTimestamp == 0) {
-          gte("timestamp", BsonDateTime(imageQuery.fromTimestamp))
+          and(gte("timestamp", BsonDateTime(imageQuery.fromTimestamp)), equal("originName", originName))
         } else if (imageQuery.fromTimestamp == 0 && imageQuery.toTimestamp > 0) {
-          lte("timestamp", BsonDateTime(imageQuery.toTimestamp))
+          and(lte("timestamp", BsonDateTime(imageQuery.toTimestamp)), equal("originName", originName))
         } else {
-          and(gte("timestamp", BsonDateTime(imageQuery.fromTimestamp)), 
-              lte("timestamp", BsonDateTime(imageQuery.toTimestamp)))
+          and(and(gte("timestamp", BsonDateTime(imageQuery.fromTimestamp)), 
+              lte("timestamp", BsonDateTime(imageQuery.toTimestamp))), equal("originName", originName))
         }
-      
-      val findFullBson = if(imageQuery.originName.length > 0) {
-        if(findTimeBson == Document.empty) {
-          equal("originName", imageQuery.originName)
-        } else {
-          and(findTimeBson, equal("originName", imageQuery.originName))
-        }
-      } else {
-        findTimeBson
-      }
       
       documentCollection.find(findFullBson).projection(include("timestamp")).sort(descending("timestamp"))
         .limit(imageQuery.limit).map[BsonDateTime] { document: Document => document("timestamp").asDateTime() }.subscribe(
           new ObserveListImageTimestamps(sender, log, "MongoDBClient - AskQueryImagesListMessage"))
-    }
+    }  
 
     case InsertImageMessage(originName, imageData) ⇒ {
-      log.info("MongoDBClient - InsertImageMessage Start")
+      log.debug("InsertImageMessage Start")
 
       caseClassCollection.insertOne(ImageDataDB(ImageDataPresented(originName, imageData.base64,
         System.currentTimeMillis))).subscribe(new ObserveInsert(sender, log, "MongoDBClient - InsertImageMessage"))
     }
     
     case InsertImageDataPresentedMessage(imageDataPresented) ⇒ {
-      log.info("MongoDBClient - InsertImageWithTimestampMessage Start")
+      log.debug("InsertImageWithTimestampMessage Start")
 
       caseClassCollection.insertOne(ImageDataDB(imageDataPresented)).subscribe(
           new ObserveInsert(sender, log, "MongoDBClient - InsertImageMessage"))

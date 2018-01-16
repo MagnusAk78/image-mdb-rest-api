@@ -17,7 +17,7 @@ class ObserveInsert(sender: ActorRef, log: LoggingAdapter, caller: String) exten
   var resultSent = false
 
   override def onNext(result: Completed): Unit = {
-    log.info(caller + ", onNext: " + result)
+    log.debug(caller + ", onNext: " + result)
     resultSent = true
     
     sender ! Right(InfoMessage("Insert OK"))
@@ -25,12 +25,12 @@ class ObserveInsert(sender: ActorRef, log: LoggingAdapter, caller: String) exten
 
   override def onError(e: Throwable): Unit = {
     resultSent = true
-    log.info(caller + ", onError: " + e.getMessage) 
+    log.debug(caller + ", onError: " + e.getMessage) 
     sender ! Left(ErrorMessage("database error: e.getMessage"))
   }
 
   override def onComplete(): Unit = {
-    log.info(caller + ", onComplete")
+    log.debug(caller + ", onComplete")
     
     if (resultSent == false) {
       sender ! Left(ErrorMessage("unexpected complete"))

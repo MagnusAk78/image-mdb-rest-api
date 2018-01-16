@@ -102,9 +102,8 @@ class AggregationClient(originName: String, originUrl: String, minutesBetweenCol
     val pipeline: HttpRequest => Future[List[Long]] = addHeader("Content-Type", "application/json") ~> 
       sendReceive ~> unmarshal[List[Long]]
     
-    val response: Future[List[Long]] = pipeline(Post(originUrl + "/images/query",
+    val response: Future[List[Long]] = pipeline(Post(originUrl + "/" + originName + "/images/query",
       ImageQuery(
-          originName = originName, 
           fromTimestamp = if(latestTimestampInOwnDB > 0) { latestTimestampInOwnDB + 1 } else { 0 }, 
           toTimestamp = 0, 
           limit = 0)))
@@ -119,7 +118,7 @@ class AggregationClient(originName: String, originUrl: String, minutesBetweenCol
     val pipeline: HttpRequest => Future[ImageDataPresented] = addHeader("Content-Type", "application/json") ~>
       sendReceive ~> unmarshal[ImageDataPresented]
 
-    val response: Future[ImageDataPresented] = pipeline(Get(originUrl + "/image/" + originName + "/" + timestamp))
+    val response: Future[ImageDataPresented] = pipeline(Get(originUrl + "/" + originName + "/image/" + timestamp))
 
     log.debug("getImage, timestamp: " + timestamp + ", END")
     Await.result(response, timeout.duration)

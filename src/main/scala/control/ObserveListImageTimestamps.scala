@@ -17,7 +17,7 @@ class ObserveListImageTimestamps(sender: ActorRef, log: LoggingAdapter, caller: 
   var timestampList: List[Long] = List.empty
 
   override def onNext(timestamp: BsonDateTime): Unit = {
-    log.info(caller + ", onNext: " + timestamp)
+    log.debug(caller + ", onNext: " + timestamp)
     timestampList = timestampList match {
       case Nil => List(timestamp.getValue)
       case list => list ++ List(timestamp.getValue)
@@ -25,12 +25,12 @@ class ObserveListImageTimestamps(sender: ActorRef, log: LoggingAdapter, caller: 
   }
 
   override def onError(e: Throwable): Unit = {
-    log.info(caller + ", onError: " + e.getMessage) 
+    log.debug(caller + ", onError: " + e.getMessage) 
     sender ! Left(ErrorMessage("database error: e.getMessage"))
   }
 
   override def onComplete(): Unit = {
-    log.info(caller + ", onComplete")
+    log.debug(caller + ", onComplete")
     
     sender ! Right(timestampList)
   }

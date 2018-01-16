@@ -16,7 +16,7 @@ class ObserveCount(sender: ActorRef, log: LoggingAdapter, caller: String) extend
   var resultSent = false
 
   override def onNext(countValue: Long): Unit = {
-    log.info(caller + ", onNext: " + countValue)
+    log.debug(caller + ", onNext: " + countValue)
     resultSent = true
     
     sender ! Right(ImagesInfo(count = countValue))
@@ -24,12 +24,12 @@ class ObserveCount(sender: ActorRef, log: LoggingAdapter, caller: String) extend
 
   override def onError(e: Throwable): Unit = {
     resultSent = true
-    log.info(caller + ", onError: " + e.getMessage) 
+    log.debug(caller + ", onError: " + e.getMessage) 
     sender ! Left(ErrorMessage("database error: e.getMessage"))
   }
 
   override def onComplete(): Unit = {
-    log.info(caller + ", onComplete")
+    log.debug(caller + ", onComplete")
     
     if (resultSent == false) {
       sender ! Right(ImagesInfo(count = 0))

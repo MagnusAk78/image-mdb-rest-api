@@ -9,6 +9,6 @@ object JsonSupport extends DefaultJsonProtocol {
   implicit val ImageDataPresentedFormat = jsonFormat3(ImageDataPresented)
   implicit val ErrorMessageFormat = jsonFormat1(ErrorMessage)
   implicit val InfoMessageFormat = jsonFormat1(InfoMessage)
-  implicit val ImageQueryFormat = jsonFormat4(ImageQuery)
+  implicit val ImageQueryFormat = jsonFormat3(ImageQuery)
   implicit val AggretationStatusFormat = jsonFormat6(AggretationStatus)
 }

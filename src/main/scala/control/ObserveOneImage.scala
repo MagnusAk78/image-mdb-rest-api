@@ -16,7 +16,7 @@ class ObserveOneImage(sender: ActorRef, log: LoggingAdapter, caller: String) ext
   var resultSent = false
 
   override def onNext(imageDataDB: ImageDataDB): Unit = {
-    log.info(caller + ", onNext: " + imageDataDB.toString)
+    log.debug(caller + ", onNext, image timestamp " + imageDataDB.timestamp)
     resultSent = true
     
     sender ! Right(ImageDataDB.toImageDataPresented(imageDataDB))
@@ -24,12 +24,12 @@ class ObserveOneImage(sender: ActorRef, log: LoggingAdapter, caller: String) ext
 
   override def onError(e: Throwable): Unit = {
     resultSent = true
-    log.info(caller + ", onError: " + e.getMessage) 
+    log.debug(caller + ", onError: " + e.getMessage) 
     sender ! Left(ErrorMessage("database error: " + e.getMessage))
   }
 
   override def onComplete(): Unit = {
-    log.info(caller + ", onComplete")
+    log.debug(caller + ", onComplete")
     
     if (resultSent == false) {
       sender ! Left(ErrorMessage("No match for queried document"))
