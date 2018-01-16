@@ -52,7 +52,7 @@ trait MyService extends HttpService {
               val result = Await.result(future, timeout.duration).asInstanceOf[Either[ErrorMessage, ImageDataPresented]]
               result match {
                 case Left(errorMessage) => errorMessage
-                case Right(imageData) => imageData
+                case Right(imageDataPresented) => imageDataPresented
               }
             }
           }
@@ -66,7 +66,7 @@ trait MyService extends HttpService {
               val result = Await.result(future, timeout.duration).asInstanceOf[Either[ErrorMessage, ImageDataPresented]]
               result match {
                 case Left(errorMessage) => errorMessage
-                case Right(imageData) => imageData
+                case Right(imageDataPresented) => imageDataPresented
               }
             }
           }
@@ -80,7 +80,7 @@ trait MyService extends HttpService {
               val result = Await.result(future, timeout.duration).asInstanceOf[Either[ErrorMessage, ImageDataPresented]]
               result match {
                 case Left(errorMessage) => errorMessage
-                case Right(imageData) => imageData
+                case Right(imageDataPresented) => imageDataPresented
               }
             }
           }

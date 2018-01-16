@@ -28,13 +28,15 @@ case object AskStatusMessage
 
 class AggregationClient(originName: String, originUrl: String, minutesBetweenCollection: Int,
     mongoDbClient: AskableActorRef) extends Actor with akka.actor.ActorLogging {
+  
+  log.debug("Aggregation client started, originName: " + originName + ", originUrl: " + originUrl)
 
   implicit val system = ActorSystem()
   import system.dispatcher // execution context for futures
 
   implicit val timeout = Timeout(5 seconds)
 
-  system.scheduler.schedule(1 minutes, minutesBetweenCollection minutes)(getImagesFromRemote)
+  system.scheduler.schedule(20 seconds, minutesBetweenCollection minutes)(getImagesFromRemote)
 
   private var latestTimestampReceived: Long = 0
   private var imagesReceived: Long = 0
@@ -50,8 +52,10 @@ class AggregationClient(originName: String, originUrl: String, minutesBetweenCol
       val latestTimestampInOwnDB = getLatestImageInOwnDB
 
       val timestamps = queryImages(latestTimestampInOwnDB)
+      log.debug("getImagesFromRemote timestamps: " + timestamps.length)
       for (timestamp <- timestamps) {
         val image = getImage(timestamp)
+        log.debug("getImagesFromRemote image: " + image.timestamp)
         imagesReceived = imagesReceived + 1
         if (image.timestamp > latestTimestampReceived) {
           latestTimestampReceived = image.timestamp
@@ -65,7 +69,8 @@ class AggregationClient(originName: String, originUrl: String, minutesBetweenCol
         log.debug("TimeoutException: " + timeout.getMessage)
       }
       case exception: Throwable => {
-        log.error("ErrorMessage: " + exception.getMessage)
+        log.error("Exception: " + exception.getMessage)
+        exception.printStackTrace()
       }
     }
     log.debug("getImagesFromRemote END")
@@ -94,9 +99,15 @@ class AggregationClient(originName: String, originUrl: String, minutesBetweenCol
   def queryImages(latestTimestampInOwnDB: Long): List[Long] = {
     log.debug("queryImages START")
 
-    val pipeline: HttpRequest => Future[List[Long]] = sendReceive ~> unmarshal[List[Long]]
+    val pipeline: HttpRequest => Future[List[Long]] = addHeader("Content-Type", "application/json") ~> 
+      sendReceive ~> unmarshal[List[Long]]
+    
     val response: Future[List[Long]] = pipeline(Post(originUrl + "/images/query",
-      ImageQuery(originName = originName, fromTimestamp = latestTimestampInOwnDB + 1, toTimestamp = 0, limit = 0)))
+      ImageQuery(
+          originName = originName, 
+          fromTimestamp = if(latestTimestampInOwnDB > 0) { latestTimestampInOwnDB + 1 } else { 0 }, 
+          toTimestamp = 0, 
+          limit = 0)))
 
     log.debug("queryImages END")
     Await.result(response, timeout.duration)
@@ -105,7 +116,8 @@ class AggregationClient(originName: String, originUrl: String, minutesBetweenCol
   def getImage(timestamp: Long): ImageDataPresented = {
     log.debug("getImage, timestamp: " + timestamp + ", START")
 
-    val pipeline: HttpRequest => Future[ImageDataPresented] = sendReceive ~> unmarshal[ImageDataPresented]
+    val pipeline: HttpRequest => Future[ImageDataPresented] = addHeader("Content-Type", "application/json") ~>
+      sendReceive ~> unmarshal[ImageDataPresented]
 
     val response: Future[ImageDataPresented] = pipeline(Get(originUrl + "/image/" + originName + "/" + timestamp))
 
