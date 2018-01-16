@@ -24,15 +24,14 @@ import akka.actor.Actor
 import akka.actor.actorRef2Scala
 import model._
 
-case class AskTimestampImageMessage(timestamp: Long)
-case object AskLatestImageMessage
-case object AskOldestImageMessage
+case class AskTimestampImageMessage(originName: String, timestamp: Long)
+case class AskLatestImageMessage(originName: String)
+case class AskOldestImageMessage(originName: String)
+case class InsertImageMessage(originName: String, imageData: ImageDataInsert)
+case class InsertImageDataPresentedMessage(imageDataPresented: ImageDataPresented)
 
 case object AskImagesCountMessage
 case class AskQueryImagesListMessage(imageQuery: ImageQuery)
-
-case class InsertImageMessage(imageData: ImageData)
-case class InsertImageWithTimestampMessage(imageDataWithTimestamp: ImageDataWithTimestamp)
 
 case class ResponseCreateIndex(resultOk: Boolean, errorMessage: Option[String])
 case class ResponseDropIndex(resultOk: Boolean, errorMessage: Option[String])
@@ -81,24 +80,24 @@ class MongoDBClient(settings: SettingsImpl) extends Actor with akka.actor.ActorL
       }
     }
 
-    case AskTimestampImageMessage(timestamp) ⇒ {
+    case AskTimestampImageMessage(originName, timestamp) ⇒ {
       log.info("MongoDBClient - AskTimestampImageMessage")
 
-      caseClassCollection.find(equal("timestamp", timestamp)).first().subscribe(
+      caseClassCollection.find(and(equal("originName", originName),equal("timestamp", timestamp))).first().subscribe(
         new ObserveOneImage(sender, log, "MongoDBClient - AskTimestampImageMessage"))
     }
 
-    case AskLatestImageMessage ⇒ {
+    case AskLatestImageMessage(originName) ⇒ {
       log.info("MongoDBClient - AskImageLastMessage")
 
-      caseClassCollection.find.sort(descending("timestamp")).first().subscribe(
+      caseClassCollection.find(equal("originName", originName)).sort(descending("timestamp")).first().subscribe(
         new ObserveOneImage(sender, log, "MongoDBClient - AskLatestImageMessage"))
     }
 
-    case AskOldestImageMessage ⇒ {
+    case AskOldestImageMessage(originName) ⇒ {
       log.info("MongoDBClient - AskOldestImageMessage")
 
-      caseClassCollection.find.sort(ascending("timestamp")).first().subscribe(
+      caseClassCollection.find(equal("originName", originName)).sort(ascending("timestamp")).first().subscribe(
         new ObserveOneImage(sender, log, "MongoDBClient - AskOldestImageMessage"))
     }
 
@@ -136,17 +135,17 @@ class MongoDBClient(settings: SettingsImpl) extends Actor with akka.actor.ActorL
           new ObserveListImageTimestamps(sender, log, "MongoDBClient - AskQueryImagesListMessage"))
     }
 
-    case InsertImageMessage(imageData) ⇒ {
+    case InsertImageMessage(originName, imageData) ⇒ {
       log.info("MongoDBClient - InsertImageMessage Start")
 
-      caseClassCollection.insertOne(ImageDataDB(ImageDataWithTimestamp(imageData.originName, imageData.base64,
+      caseClassCollection.insertOne(ImageDataDB(ImageDataPresented(originName, imageData.base64,
         System.currentTimeMillis))).subscribe(new ObserveInsert(sender, log, "MongoDBClient - InsertImageMessage"))
     }
     
-    case InsertImageWithTimestampMessage(imageDataWithTimestamp) ⇒ {
+    case InsertImageDataPresentedMessage(imageDataPresented) ⇒ {
       log.info("MongoDBClient - InsertImageWithTimestampMessage Start")
 
-      caseClassCollection.insertOne(ImageDataDB(imageDataWithTimestamp)).subscribe(
+      caseClassCollection.insertOne(ImageDataDB(imageDataPresented)).subscribe(
           new ObserveInsert(sender, log, "MongoDBClient - InsertImageMessage"))
     }
   }

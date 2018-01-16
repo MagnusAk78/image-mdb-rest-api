@@ -28,7 +28,7 @@ class SettingsImpl(config: Config) extends Extension {
       uri = entry.getValue.unwrapped().toString
     } yield(key, uri)).toMap 
   }
-  val minutesBetweenCollection: Int = config.getInt("aggregation-db.minutes-between-collection")
+  val minutesBetweenCollection: Int = config.getInt("aggregation.minutes-between-collection")
 }
 
 object Settings extends ExtensionId[SettingsImpl] with ExtensionIdProvider {

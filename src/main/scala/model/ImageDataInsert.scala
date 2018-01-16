@@ -28,9 +28,9 @@ trait HasOriginName {
   val originName: String
 }
 
-case class ImageData(originName: String, base64: String) extends HasOriginName with HasBase64String 
+case class ImageDataInsert(base64: String) extends HasBase64String 
 
-case class ImageDataWithTimestamp(originName: String, base64: String, timestamp: Long) extends HasOriginName 
+case class ImageDataPresented(originName: String, base64: String, timestamp: Long) extends HasOriginName 
   with HasBase64String with HasTimestampLong
 
 case class ImageDataDB(_id: ObjectId, originName: String, base64: String, timestamp: BsonDateTime) 
@@ -40,10 +40,10 @@ object ImageDataDB {
   def apply(originName: String, base64: String, timestamp: Long): ImageDataDB =
     ImageDataDB(new ObjectId(), originName, base64, BsonDateTime(timestamp))
     
-  def apply(imageDataWithTimestamp: ImageDataWithTimestamp): ImageDataDB =
-    ImageDataDB(new ObjectId(), imageDataWithTimestamp.originName, imageDataWithTimestamp.base64, 
-        BsonDateTime(imageDataWithTimestamp.timestamp))
+  def apply(imageDataPresented: ImageDataPresented): ImageDataDB =
+    ImageDataDB(new ObjectId(), imageDataPresented.originName, imageDataPresented.base64, 
+        BsonDateTime(imageDataPresented.timestamp))
     
-  def toImageDataWithTimestamp(imageDataDB: ImageDataDB): ImageDataWithTimestamp = 
-    ImageDataWithTimestamp(imageDataDB.originName, imageDataDB.base64, imageDataDB.timestamp.getValue)
+  def toImageDataPresented(imageDataDB: ImageDataDB): ImageDataPresented = 
+    ImageDataPresented(imageDataDB.originName, imageDataDB.base64, imageDataDB.timestamp.getValue)
 }

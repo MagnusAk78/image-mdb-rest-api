@@ -19,7 +19,7 @@ class ObserveOneImage(sender: ActorRef, log: LoggingAdapter, caller: String) ext
     log.info(caller + ", onNext: " + imageDataDB.toString)
     resultSent = true
     
-    sender ! Right(ImageDataDB.toImageDataWithTimestamp(imageDataDB))
+    sender ! Right(ImageDataDB.toImageDataPresented(imageDataDB))
   }
 
   override def onError(e: Throwable): Unit = {
