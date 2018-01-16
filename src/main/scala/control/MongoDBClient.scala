@@ -86,7 +86,7 @@ class MongoDBClient(settings: SettingsImpl) extends Actor with akka.actor.ActorL
       caseClassCollection.find(and(equal("originName", originName),equal("timestamp", BsonDateTime(timestamp)))).first().subscribe(
         new ObserveOneImage(sender, log, "MongoDBClient - AskTimestampImageMessage"))
     }
-
+ 
     case AskLatestImageMessage(originName) ⇒ {
       log.info("MongoDBClient - AskImageLastMessage")
 
@@ -113,11 +113,12 @@ class MongoDBClient(settings: SettingsImpl) extends Actor with akka.actor.ActorL
       val findTimeBson = if (imageQuery.fromTimestamp == 0 && imageQuery.toTimestamp == 0) {
           Document.empty
         } else if (imageQuery.fromTimestamp > 0 && imageQuery.toTimestamp == 0) {
-          gte("timestamp", imageQuery.fromTimestamp)
+          gte("timestamp", BsonDateTime(imageQuery.fromTimestamp))
         } else if (imageQuery.fromTimestamp == 0 && imageQuery.toTimestamp > 0) {
-          lte("timestamp", imageQuery.toTimestamp)
+          lte("timestamp", BsonDateTime(imageQuery.toTimestamp))
         } else {
-          and(gte("timestamp", imageQuery.fromTimestamp), lte("timestamp", imageQuery.toTimestamp))
+          and(gte("timestamp", BsonDateTime(imageQuery.fromTimestamp)), 
+              lte("timestamp", BsonDateTime(imageQuery.toTimestamp)))
         }
       
       val findFullBson = if(imageQuery.originName.length > 0) {
