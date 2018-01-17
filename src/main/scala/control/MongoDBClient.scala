@@ -29,6 +29,7 @@ case class AskLatestImageMessage(originName: String)
 case class AskOldestImageMessage(originName: String)
 case class InsertImageMessage(originName: String, imageData: ImageDataInsert)
 case class InsertImageDataPresentedMessage(imageDataPresented: ImageDataPresented)
+case class InsertImageDataPresentedGzipMessage(imageDataPresentedGzip: ImageDataPresentedGzip)
 
 case class AskImagesCountMessage(originName: String)
 case class AskQueryImagesListMessage(originName: String, imageQuery: ImageQuery)
@@ -139,5 +140,12 @@ class MongoDBClient(settings: SettingsImpl) extends Actor with akka.actor.ActorL
       caseClassCollection.insertOne(ImageDataDB(imageDataPresented)).subscribe(
           new ObserveInsert(sender, log, "MongoDBClient - InsertImageMessage"))
     }
+    
+    case InsertImageDataPresentedGzipMessage(imageDataPresentedGzip) ⇒ {
+      log.debug("InsertImageWithTimestampMessage Start")
+
+      caseClassCollection.insertOne(ImageDataDB(imageDataPresentedGzip)).subscribe(
+          new ObserveInsert(sender, log, "MongoDBClient - InsertImageMessage"))
+    }    
   }
 }

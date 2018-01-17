@@ -18,6 +18,7 @@ import model.ErrorMessage
 import model.InfoMessage
 import model.ImageDataPresented
 import model.AggretationStatus
+import model.ImageDataPresentedGzip
 import control._
 
 // we don't implement our route structure directly in the service actor because
@@ -98,6 +99,22 @@ trait MyService extends HttpService {
                     case Left(errorMessage) => errorMessage
                     case Right(infoMessage) => infoMessage
                   }
+                }
+              }
+            }
+          }
+        }
+      } ~
+      pathPrefix("gzip") {
+        path(LongNumber) { timestamp =>
+          get {
+            respondWithMediaType(`application/json`) {
+              complete {
+                val future = mongoDBClient ? AskTimestampImageMessage(originName, timestamp)
+                val result = Await.result(future, timeout.duration).asInstanceOf[Either[ErrorMessage, ImageDataPresentedGzip]]
+                result match {
+                  case Left(errorMessage) => errorMessage
+                  case Right(imageDataPresentedGzip) => imageDataPresentedGzip
                 }
               }
             }

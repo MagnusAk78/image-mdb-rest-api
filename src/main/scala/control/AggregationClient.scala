@@ -112,22 +112,22 @@ class AggregationClient(originName: String, originUrl: String, minutesBetweenCol
     Await.result(response, timeout.duration)
   }
 
-  def getImage(timestamp: Long): ImageDataPresented = {
+  def getImage(timestamp: Long): ImageDataPresentedGzip = {
     log.debug("getImage, timestamp: " + timestamp + ", START")
 
-    val pipeline: HttpRequest => Future[ImageDataPresented] = addHeader("Content-Type", "application/json") ~>
-      sendReceive ~> unmarshal[ImageDataPresented]
+    val pipeline: HttpRequest => Future[ImageDataPresentedGzip] = addHeader("Content-Type", "application/json") ~>
+      sendReceive ~> unmarshal[ImageDataPresentedGzip]
 
-    val response: Future[ImageDataPresented] = pipeline(Get(originUrl + "/" + originName + "/image/" + timestamp))
+    val response: Future[ImageDataPresentedGzip] = pipeline(Get(originUrl + "/" + originName + "/gzip/" + timestamp))
 
     log.debug("getImage, timestamp: " + timestamp + ", END")
     Await.result(response, timeout.duration)
   }
 
-  def writeImageData(imageDataPresented: ImageDataPresented) {
+  def writeImageData(imageDataPresentedGzip: ImageDataPresentedGzip) {
     log.debug("writeImageData START")
 
-    val future = mongoDbClient ? InsertImageDataPresentedMessage(imageDataPresented)
+    val future = mongoDbClient ? InsertImageDataPresentedGzipMessage(imageDataPresentedGzip)
 
     Await.result(future, timeout.duration).asInstanceOf[Either[ErrorMessage, InfoMessage]] match {
       case Left(errorMessage) => {
